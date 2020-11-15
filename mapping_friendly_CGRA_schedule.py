@@ -147,9 +147,9 @@ def scheduled(data, npe, beta):
             continue
         else:
             break
-    
-    # 在已知ii的基础上进行路由算子集合与路由节点最晚时间步计算
-    for II in range(ii, key_route_length+1): # 若无解，则循环
+
+    for II in range(ii, key_route_length+1):  # 若无解，则循环
+        # 在已知ii的基础上进行路由算子集合与路由节点最晚时间步计算
         for x in data:
             op = op_list[x[0] - 1]  # 取出路由算子
             max_temp = 0  # 路由最晚时间步
@@ -165,7 +165,7 @@ def scheduled(data, npe, beta):
                 max_temp = op.earlier_time_step
             op.router_lastest_time_step = max_temp
             op.moves_router = [op.earlier_time_step,
-                            op.router_lastest_time_step]  # 算子的路由节点可放置范围
+                               op.router_lastest_time_step]  # 算子的路由节点可放置范围
             if(max_temp > 0):  # 可路由
                 Router.append(op)
 
@@ -197,7 +197,8 @@ def scheduled(data, npe, beta):
         print("唯一性")
         for i in range(len(x_var_list)):
             constraints.append(
-                lpSum(x_var_list[i][j][0] for j in range(len(x_var_list[i]))) == 1
+                lpSum(x_var_list[i][j][0]
+                      for j in range(len(x_var_list[i]))) == 1
             )
             print(lpSum(x_var_list[i][j][0]
                         for j in range(len(x_var_list[i]))) == 1)
@@ -213,7 +214,8 @@ def scheduled(data, npe, beta):
                     constraints.append(
                         lpSum(temp_var_list[n][m-n] for n in range(m+1)) <= 1
                     )
-                    print(lpSum(temp_var_list[n][m-n] for n in range(m+1)) <= 1)
+                    print(lpSum(temp_var_list[n][m-n]
+                                for n in range(m+1)) <= 1)
                 else:
                     constraints.append(
                         lpSum(temp_var_list[n][m-n] for n in range(j)) <= 1
@@ -226,34 +228,33 @@ def scheduled(data, npe, beta):
         for edge in E:
             father = x_var_list[edge[0]-1]  # 父变量集合
             kid = x_var_list[edge[1]-1]  # 子变量集合
-            if(edge[2] == 1): # 迭代边
+            if(edge[2] == 1):  # 迭代边
                 for i in range(len(father)):  # 遍历每一个父的调度节点变量
                     constraints.append(
                         (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
-                                                                        data[edge[1] - 1][9] + II) * kid[k][0] for k in range(len(kid))) <= -1
+                                                                           data[edge[1] - 1][9] + II) * kid[k][0] for k in range(len(kid))) <= -1
                     )
                     print(
                         (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
-                                                                        data[edge[1] - 1][9] + II) * kid[k][0] for k in range(len(kid))) <= -1
+                                                                           data[edge[1] - 1][9] + II) * kid[k][0] for k in range(len(kid))) <= -1
                     )
             else:
                 for i in range(len(father)):  # 遍历每一个父的调度节点变量
                     constraints.append(
                         (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
-                                                                        data[edge[1] - 1][9]) * kid[k][0] for k in range(len(kid))) <= -1
+                                                                           data[edge[1] - 1][9]) * kid[k][0] for k in range(len(kid))) <= -1
                     )
                     print(
                         (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
-                                                                        data[edge[1] - 1][9]) * kid[k][0] for k in range(len(kid))) <= -1
+                                                                           data[edge[1] - 1][9]) * kid[k][0] for k in range(len(kid))) <= -1
                     )
-            
-            
+
         # 父算子的所有路由节点都小于子节点中最大时间步
         print("依赖约束：父算子小于所有子节点中的最大时间步")
         for i in range(len(op_list)):
             max_sn = 0  # 子节点中最大时间步
             op = op_list[i]
-            if(len(op.children) == 0): # 无子节点，跳过约束
+            if(len(op.children) == 0):  # 无子节点，跳过约束
                 continue
             for child in op.children:
                 id = child[0]
@@ -276,7 +277,8 @@ def scheduled(data, npe, beta):
         for i in range(len(x_var_list)):
             for j in range(len(x_var_list[i])):
                 for k in range(len(x_var_list[i][j])):
-                    x_var[(k + (data[i][9]) + j) % II].append(x_var_list[i][j][k])
+                    x_var[(k + (data[i][9]) + j) %
+                          II].append(x_var_list[i][j][k])
         for ls in x_var:
             constraints.append(
                 lpSum(ls) <= npe
@@ -289,9 +291,6 @@ def scheduled(data, npe, beta):
 
         # 目标方程
         print("目标方程")
-        # 最大资源使用量
-        Npe = ((lpSum(beta * x_var[i][j])
-                for j in range(len(x_var[i]))) for i in range(len(x_var)))
         # 路由算子使用量
         Nins_ls = []
         for i in range(len(x_var_list)):
@@ -299,9 +298,10 @@ def scheduled(data, npe, beta):
                 for k in range(len(x_var_list[i][j])):
                     if(j != k):
                         Nins_ls.append(x_var_list[i][j][k])
-        Nins = lpSum(Nins_ls)
-        prob += Npe - Nins
-        print(Npe - Nins)
+        prob += ((lpSum(beta * x_var[i][j]) for j in range(len(x_var[i])))
+                 for i in range(len(x_var))) - lpSum(Nins_ls)
+        print(((lpSum(beta * x_var[i][j]) for j in range(len(x_var[i])))
+               for i in range(len(x_var))) - lpSum(Nins_ls))
 
         prob.solve()
         # 查看解的状态
@@ -309,15 +309,16 @@ def scheduled(data, npe, beta):
         # 查看解
         for v in prob.variables():
             print(v.name, "=", v.varValue)
-        
+
         optimal_flag = True
-        if("Optimal" != LpStatus[prob.status]): # 无最优解
+        if("Optimal" != LpStatus[prob.status]):  # 无最优解
             optimal_flag = False
-        
+
         # 查找长依赖约束
-        
+
         if(optimal_flag == True):
             break
+
 
 if __name__ == '__main__':
     scheduled(get_data(), 16, 10)
