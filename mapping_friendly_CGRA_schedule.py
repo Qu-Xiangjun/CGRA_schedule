@@ -147,168 +147,177 @@ def scheduled(data, npe, beta):
             continue
         else:
             break
-
+    
     # 在已知ii的基础上进行路由算子集合与路由节点最晚时间步计算
-    for x in data:
-        op = op_list[x[0] - 1]  # 取出路由算子
-        max_temp = 0  # 路由最晚时间步
-        for child in op.children:
-            t2 = 0
-            if(child[1] == 1):  # 可迭代算子，要加上ii
-                t2 = data[child[0]-1][10] + ii  # 最晚时间步加ii
+    for II in range(ii, key_route_length+1): # 若无解，则循环
+        for x in data:
+            op = op_list[x[0] - 1]  # 取出路由算子
+            max_temp = 0  # 路由最晚时间步
+            for child in op.children:
+                t2 = 0
+                if(child[1] == 1):  # 可迭代算子，要加上ii
+                    t2 = data[child[0]-1][10] + II  # 最晚时间步加ii
+                else:
+                    t2 = data[child[0]-1][10]
+                if(max_temp < t2-1):  # 最晚路由算子为子节点的最晚时间-1
+                    max_temp = t2-1
+            if(len(op.children) == 0):  # 没有子节点的末尾节点，设置路由范围为相同的最早开始步
+                max_temp = op.earlier_time_step
+            op.router_lastest_time_step = max_temp
+            op.moves_router = [op.earlier_time_step,
+                            op.router_lastest_time_step]  # 算子的路由节点可放置范围
+            if(max_temp > 0):  # 可路由
+                Router.append(op)
+
+        # 求解
+        # 添加自变量
+        prob = LpProblem("CGRA", LpMinimize)  # 最小化问题
+        x_var_list = []  # 每个算子x的变量集合，每个字列表
+        for i in range(len(data)):
+            op = op_list[i]
+            tmp = data[i]
+            ls1 = []  # 每个算子的所有节点集合的 列表
+            # 算子的机动范围
+            for j in range(op.moves_router[0], op.lastest_time_step+1):
+                ls2 = []  # 每个算子的节点列表
+                # 算子的可路由范围
+                for k in range(j, op.moves_router[1]+1):
+                    var = pulp.LpVariable("x_{}_{}_{}".format(
+                        i+1, j, k), lowBound=0, cat='Integer')
+                    ls2.append(var)
+                ls1.append(ls2)
+            print(ls1)
+            x_var_list.append(ls1)
+        print()
+
+        # 添加约束
+        constraints = []  # 约束列表
+
+        # 唯一性约束
+        print("唯一性")
+        for i in range(len(x_var_list)):
+            constraints.append(
+                lpSum(x_var_list[i][j][0] for j in range(len(x_var_list[i]))) == 1
+            )
+            print(lpSum(x_var_list[i][j][0]
+                        for j in range(len(x_var_list[i]))) == 1)
+
+        # 排他性
+        print("排他性")
+        for i in range(len(x_var_list)):
+            temp_var_list = x_var_list[i]
+            j = len(temp_var_list)  # 变量的组数
+            k = len(temp_var_list[0])  # 最长的变量组的变量数
+            for m in range(k):
+                if(m <= j-1):
+                    constraints.append(
+                        lpSum(temp_var_list[n][m-n] for n in range(m+1)) <= 1
+                    )
+                    print(lpSum(temp_var_list[n][m-n] for n in range(m+1)) <= 1)
+                else:
+                    constraints.append(
+                        lpSum(temp_var_list[n][m-n] for n in range(j)) <= 1
+                    )
+                    print(lpSum(temp_var_list[n][m-n] for n in range(j)) <= 1)
+
+        # 依赖约束
+        # 父节点调度时间步小于子节点调度时间步
+        print("依赖约束：父节点调度时间步小于子节点调度时间步")
+        for edge in E:
+            father = x_var_list[edge[0]-1]  # 父变量集合
+            kid = x_var_list[edge[1]-1]  # 子变量集合
+            if(edge[2] == 1): # 迭代边
+                for i in range(len(father)):  # 遍历每一个父的调度节点变量
+                    constraints.append(
+                        (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
+                                                                        data[edge[1] - 1][9] + II) * kid[k][0] for k in range(len(kid))) <= -1
+                    )
+                    print(
+                        (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
+                                                                        data[edge[1] - 1][9] + II) * kid[k][0] for k in range(len(kid))) <= -1
+                    )
             else:
-                t2 = data[child[0]-1][10]
-            if(max_temp < t2-1):  # 最晚路由算子为子节点的最晚时间-1
-                max_temp = t2-1
-        if(len(op.children) == 0):  # 没有子节点的末尾节点，设置路由范围为相同的最早开始步
-            max_temp = op.earlier_time_step
-        op.router_lastest_time_step = max_temp
-        op.moves_router = [op.earlier_time_step,
-                           op.router_lastest_time_step]  # 算子的路由节点可放置范围
-        if(max_temp > 0):  # 可路由
-            Router.append(op)
+                for i in range(len(father)):  # 遍历每一个父的调度节点变量
+                    constraints.append(
+                        (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
+                                                                        data[edge[1] - 1][9]) * kid[k][0] for k in range(len(kid))) <= -1
+                    )
+                    print(
+                        (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
+                                                                        data[edge[1] - 1][9]) * kid[k][0] for k in range(len(kid))) <= -1
+                    )
+            
+            
+        # 父算子的所有路由节点都小于子节点中最大时间步
+        print("依赖约束：父算子小于所有子节点中的最大时间步")
+        for i in range(len(op_list)):
+            max_sn = 0  # 子节点中最大时间步
+            op = op_list[i]
+            if(len(op.children) == 0): # 无子节点，跳过约束
+                continue
+            for child in op.children:
+                id = child[0]
+                kid_op = op_list[id-1]
+                if(max_sn < kid_op.lastest_time_step):
+                    max_sn = kid_op.lastest_time_step
+            for j in range(len(x_var_list[i])):
+                for k in range(len(x_var_list[i][j])):
+                    temp = x_var_list[i][j]
+                    constraints.append(
+                        (k + op.earlier_time_step + j) * temp[k] - max_sn <= -1
+                    )
+                    print(
+                        (k + op.earlier_time_step + j) * temp[k] - max_sn <= -1
+                    )
 
-    # 求解
-    # 添加自变量
-    prob = LpProblem("CGRA", LpMinimize)  # 最小化问题
-    x_var_list = []  # 每个算子x的变量集合，每个字列表
-    for i in range(len(data)):
-        op = op_list[i]
-        tmp = data[i]
-        ls1 = []  # 每个算子的所有节点集合的 列表
-        # 算子的机动范围
-        for j in range(op.moves_router[0], op.lastest_time_step+1):
-            ls2 = []  # 每个算子的节点列表
-            # 算子的可路由范围
-            for k in range(j, op.moves_router[1]+1):
-                var = pulp.LpVariable("x_{}_{}_{}".format(
-                    i+1, j, k), lowBound=0, cat='Integer')
-                ls2.append(var)
-            ls1.append(ls2)
-        print(ls1)
-        x_var_list.append(ls1)
-    print()
+        # PE资源约束
+        print("PE约束")
+        x_var = [[] for i in range(II)]  # 收集每个ii行积累的算子
+        for i in range(len(x_var_list)):
+            for j in range(len(x_var_list[i])):
+                for k in range(len(x_var_list[i][j])):
+                    x_var[(k + (data[i][9]) + j) % II].append(x_var_list[i][j][k])
+        for ls in x_var:
+            constraints.append(
+                lpSum(ls) <= npe
+            )
+            print(lpSum(ls) <= npe)
 
-    # 添加约束
-    constraints = []  # 约束列表
+        # 添加约束
+        for item in constraints:
+            prob += item
 
-    # 唯一性约束
-    print("唯一性")
-    for i in range(len(x_var_list)):
-        constraints.append(
-            lpSum(x_var_list[i][j][0] for j in range(len(x_var_list[i]))) == 1
-        )
-        print(lpSum(x_var_list[i][j][0]
-                    for j in range(len(x_var_list[i]))) == 1)
+        # 目标方程
+        print("目标方程")
+        # 最大资源使用量
+        Npe = ((lpSum(beta * x_var[i][j])
+                for j in range(len(x_var[i]))) for i in range(len(x_var)))
+        # 路由算子使用量
+        Nins_ls = []
+        for i in range(len(x_var_list)):
+            for j in range(len(x_var_list[i])):
+                for k in range(len(x_var_list[i][j])):
+                    if(j != k):
+                        Nins_ls.append(x_var_list[i][j][k])
+        Nins = lpSum(Nins_ls)
+        prob += Npe - Nins
+        print(Npe - Nins)
 
-    # 排他性
-    print("排他性")
-    for i in range(len(x_var_list)):
-        temp_var_list = x_var_list[i]
-        j = len(temp_var_list)  # 变量的组数
-        k = len(temp_var_list[0])  # 最长的变量组的变量数
-        for m in range(k):
-            if(m <= j-1):
-                constraints.append(
-                    lpSum(temp_var_list[n][m-n] for n in range(m+1)) <= 1
-                )
-                print(lpSum(temp_var_list[n][m-n] for n in range(m+1)) <= 1)
-            else:
-                constraints.append(
-                    lpSum(temp_var_list[n][m-n] for n in range(j)) <= 1
-                )
-                print(lpSum(temp_var_list[n][m-n] for n in range(j)) <= 1)
-
-    # 依赖约束
-    # 父节点调度时间步小于子节点调度时间步
-    print("依赖约束：父节点调度时间步小于子节点调度时间步")
-    for edge in E:
-        father = x_var_list[edge[0]-1]  # 父变量集合
-        kid = x_var_list[edge[1]-1]  # 子变量集合
-        if(edge[2] == 1): # 迭代边
-            for i in range(len(father)):  # 遍历每一个父的调度节点变量
-                constraints.append(
-                    (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
-                                                                    data[edge[1] - 1][9] + ii) * kid[k][0] for k in range(len(kid))) <= -1
-                )
-                print(
-                    (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
-                                                                    data[edge[1] - 1][9] + ii) * kid[k][0] for k in range(len(kid))) <= -1
-                )
-        else:
-            for i in range(len(father)):  # 遍历每一个父的调度节点变量
-                constraints.append(
-                    (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
-                                                                    data[edge[1] - 1][9]) * kid[k][0] for k in range(len(kid))) <= -1
-                )
-                print(
-                    (i + data[edge[0] - 1][9]) * father[i][0] - lpSum((k +
-                                                                    data[edge[1] - 1][9]) * kid[k][0] for k in range(len(kid))) <= -1
-                )
+        prob.solve()
+        # 查看解的状态
+        print("Status:", LpStatus[prob.status])
+        # 查看解
+        for v in prob.variables():
+            print(v.name, "=", v.varValue)
         
+        optimal_flag = True
+        if("Optimal" != LpStatus[prob.status]): # 无最优解
+            optimal_flag = False
         
-    # 父算子的所有路由节点都小于子节点中最大时间步
-    print("依赖约束：父算子小于所有子节点中的最大时间步")
-    for i in range(len(op_list)):
-        max_sn = 0  # 子节点中最大时间步
-        op = op_list[i]
-        if(len(op.children) == 0): # 无子节点，跳过约束
-            continue
-        for child in op.children:
-            id = child[0]
-            kid_op = op_list[id-1]
-            if(max_sn < kid_op.lastest_time_step):
-                max_sn = kid_op.lastest_time_step
-        for j in range(len(x_var_list[i])):
-            for k in range(len(x_var_list[i][j])):
-                temp = x_var_list[i][j]
-                constraints.append(
-                    (k + op.earlier_time_step + j) * temp[k] - max_sn <= -1
-                )
-                print(
-                    (k + op.earlier_time_step + j) * temp[k] - max_sn <= -1
-                )
-
-    # PE资源约束
-    print("PE约束")
-    x_var = [[] for i in range(ii)]  # 收集每个ii行积累的算子
-    for i in range(len(x_var_list)):
-        for j in range(len(x_var_list[i])):
-            for k in range(len(x_var_list[i][j])):
-                x_var[(k + (data[i][9]) + j) % ii].append(x_var_list[i][j][k])
-    for ls in x_var:
-        constraints.append(
-            lpSum(ls) <= npe
-        )
-        print(lpSum(ls) <= npe)
-
-    # 添加约束
-    for item in constraints:
-        prob += item
-
-    # 目标方程
-    print("目标方程")
-    # 最大资源使用量
-    Npe = ((lpSum(beta * x_var[i][j])
-            for j in range(len(x_var[i]))) for i in range(len(x_var)))
-    # 路由算子使用量
-    Nins_ls = []
-    for i in range(len(x_var_list)):
-        for j in range(len(x_var_list[i])):
-            for k in range(len(x_var_list[i][j])):
-                if(j != k):
-                    Nins_ls.append(x_var_list[i][j][k])
-    Nins = lpSum(Nins_ls)
-    prob += Npe - Nins
-    print(Npe - Nins)
-
-    prob.solve()
-    # 查看解的状态
-    print("Status:", LpStatus[prob.status])
-    # 查看解
-    for v in prob.variables():
-        print(v.name, "=", v.varValue)
-
+        # 查找长依赖约束
+        
+        if(optimal_flag == True):
+            break
 
 if __name__ == '__main__':
-    scheduled(get_data(), 16, 1)
+    scheduled(get_data(), 16, 10)
