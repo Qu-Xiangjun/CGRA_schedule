@@ -62,12 +62,11 @@ class opterator:
         self.start_op = False  # 是否为起始节点
 
 
-def scheduled(data, npe, beta):
+def scheduled(data, npe):
     """
     调度函数
     @x 输入列表，每个字列表为一个算子的数据
     @npe PEA中的PE数量
-    @beta 目标函数的权重系数
     """
     key_route_length = 0  # 关键路径长度  即时间步从0到key_route_length-1
     op_list = []  # 算子列表
@@ -209,18 +208,45 @@ def scheduled(data, npe, beta):
             temp_var_list = x_var_list[i]
             j = len(temp_var_list)  # 变量的组数
             k = len(temp_var_list[0])  # 最长的变量组的变量数
-            for m in range(k):
-                if(m <= j-1):
-                    constraints.append(
-                        lpSum(temp_var_list[n][m-n] for n in range(m+1)) <= 1
-                    )
-                    print(lpSum(temp_var_list[n][m-n]
-                                for n in range(m+1)) <= 1)
-                else:
-                    constraints.append(
-                        lpSum(temp_var_list[n][m-n] for n in range(j)) <= 1
-                    )
-                    print(lpSum(temp_var_list[n][m-n] for n in range(j)) <= 1)
+            for j1 in range(j):
+                for j2 in range(j):
+                    if(j1 != j2):
+                        for m in range(1,len(temp_var_list[j2])):
+                            constraints.append(
+                                temp_var_list[j1][0] + temp_var_list[j2][m] <= 1
+                            )
+                            print(
+                                temp_var_list[j1][0] + temp_var_list[j2][m] <= 1 
+                            )
+            
+        
+        
+        
+        # for i in range(len(x_var_list)):
+        #     temp_var_list = x_var_list[i]
+        #     j = len(temp_var_list)  # 变量的组数
+        #     k = len(temp_var_list[0])  # 最长的变量组的变量数
+
+        #     for m in range(k):
+        #         const_var_ls = []  # 调度节点列表
+        #         for j2 in range(j):  # 组数
+        #             if(j2 != m):
+        #                 const_var_ls.append(temp_var_list[j2][0])
+
+        #         if(m <= j-1):
+        #             constraints.append(
+        #                 lpSum(temp_var_list[n][m-n]
+        #                       for n in range(m+1)) + lpSum(const_var_ls[n] for n in range(len(const_var_ls))) <= 1
+        #             )
+        #             print(lpSum(temp_var_list[n][m-n]
+        #                         for n in range(m+1)) + lpSum(const_var_ls[n] for n in range(len(const_var_ls))) <= 1)
+        #         else:
+        #             constraints.append(
+        #                 lpSum(temp_var_list[n][m-n]
+        #                       for n in range(j)) + lpSum(const_var_ls[n] for n in range(len(const_var_ls))) <= 1
+        #             )
+        #             print(lpSum(temp_var_list[n][m-n]
+        #                         for n in range(j)) + lpSum(const_var_ls[n] for n in range(len(const_var_ls))) <= 1)
 
         # 依赖约束
         # 父节点调度时间步小于子节点调度时间步
@@ -298,6 +324,16 @@ def scheduled(data, npe, beta):
                 for k in range(len(x_var_list[i][j])):
                     if(j != k):
                         Nins_ls.append(x_var_list[i][j][k])
+
+        beta = len(Nins_ls)  # 目标方程系数项，等于路由算子最大使用量
+
+        # for ls in x_var:
+        #     prob += (lpSum(beta * ls[j])
+        #              for j in range(len(ls))) - lpSum(Nins_ls)
+        #     print(
+        #         (lpSum(beta * ls[j]) for j in range(len(ls))) - lpSum(Nins_ls)
+        #     )
+        
         prob += ((lpSum(beta * x_var[i][j]) for j in range(len(x_var[i])))
                  for i in range(len(x_var))) - lpSum(Nins_ls)
         print(((lpSum(beta * x_var[i][j]) for j in range(len(x_var[i])))
@@ -321,4 +357,4 @@ def scheduled(data, npe, beta):
 
 
 if __name__ == '__main__':
-    scheduled(get_data(), 16, 10)
+    scheduled(get_data(), 16)
