@@ -208,46 +208,19 @@ def scheduled(data, npe):
             temp_var_list = x_var_list[i]
             j = len(temp_var_list)  # 变量的组数
             k = len(temp_var_list[0])  # 最长的变量组的变量数
-            for j1 in range(j):
-                for j2 in range(j):
-                    if(j1 != j2):
-                        for m in range(1,len(temp_var_list[j2])):
+            for j1 in range(j): # 当前调度算子的组
+                for j2 in range(j): # 非调度算子的组
+                    if(j1 != j2): # 判断j2不是调度算子的组号
+                        for m in range(1,len(temp_var_list[j2])):  
+                            # 遍历非当前调度算子组的路由算子，即从下标1开始
+                            # 每一非选中调度算子组的其他组路由算子加选中的调度算子都小于等于1
                             constraints.append(
                                 temp_var_list[j1][0] + temp_var_list[j2][m] <= 1
                             )
                             print(
                                 temp_var_list[j1][0] + temp_var_list[j2][m] <= 1 
                             )
-            
-        
-        
-        
-        # for i in range(len(x_var_list)):
-        #     temp_var_list = x_var_list[i]
-        #     j = len(temp_var_list)  # 变量的组数
-        #     k = len(temp_var_list[0])  # 最长的变量组的变量数
-
-        #     for m in range(k):
-        #         const_var_ls = []  # 调度节点列表
-        #         for j2 in range(j):  # 组数
-        #             if(j2 != m):
-        #                 const_var_ls.append(temp_var_list[j2][0])
-
-        #         if(m <= j-1):
-        #             constraints.append(
-        #                 lpSum(temp_var_list[n][m-n]
-        #                       for n in range(m+1)) + lpSum(const_var_ls[n] for n in range(len(const_var_ls))) <= 1
-        #             )
-        #             print(lpSum(temp_var_list[n][m-n]
-        #                         for n in range(m+1)) + lpSum(const_var_ls[n] for n in range(len(const_var_ls))) <= 1)
-        #         else:
-        #             constraints.append(
-        #                 lpSum(temp_var_list[n][m-n]
-        #                       for n in range(j)) + lpSum(const_var_ls[n] for n in range(len(const_var_ls))) <= 1
-        #             )
-        #             print(lpSum(temp_var_list[n][m-n]
-        #                         for n in range(j)) + lpSum(const_var_ls[n] for n in range(len(const_var_ls))) <= 1)
-
+                            
         # 依赖约束
         # 父节点调度时间步小于子节点调度时间步
         print("依赖约束：父节点调度时间步小于子节点调度时间步")
