@@ -13,12 +13,12 @@ def get_data():
                 最早时间步  最晚时间步  节点类型  有无父节点
     """
     # 读取数据
-    filename = 'example2.xls'
+    filename = 'example3.xls'
     data = pd.read_excel(filename)
     print("input data：")
     print(data)
     x = np.array([list(data[u'节点编号']), list(data[u'子节点1']), list(data[u'边类型1']),
-                  list(data[u'子节点2']), list(data[u'边类型2']),
+                  list(data[u'子节点 2']), list(data[u'边类型2']),
                   list(data[u'子节点3']), list(data[u'边类型3']),
                   list(data[u'子节点4']), list(data[u'边类型4']),
                   list(data[u'最早时间步']), list(data[u'最晚时间步']),
@@ -29,7 +29,7 @@ def get_data():
     print()
 
     return x
-
+ew
 
 def output_file(data):
     # 任意的多组列表
@@ -42,7 +42,7 @@ def output_file(data):
                               '子节点3': data[4], '子节点4': data[5], '节点类型': data[6], '原节点编号': data[7]})
 
     # 将DataFrame存储为csv,index表示是否显示行名，default=True
-    dataframe.to_csv(os.getcwd() + "\\result.csv", index=False, sep=',')
+Z    dataframe.to_csv(os.getcwd() + "\\result.csv", index=False, sep=',')
 
 
 class opterator:
@@ -105,7 +105,7 @@ def scheduled(data, npe):
     # 满足基本的启动间隔约束
     # 满足在无路由节点下的pe数量约束 ( 有路由节点的PE数量约束放在ILP中进行 )
     ii = 2
-    for ii in range(2, key_route_length + 1):  # 遍历得到最小符合的ii，由于1不可能实现，从2开始
+    for ii in range(1, key_route_length + 1):  # 遍历得到最小符合的ii，由于1不可能实现，从2开始
         flag = True  # 符合flag
 
         # 启动间隔约束
@@ -513,8 +513,6 @@ def scheduled(data, npe):
         optimal_flag = True
         if ("Optimal" != LpStatus[prob.status]):  # 无最优解
             optimal_flag = False
-
-        # 查找长依赖约束
 
         if (optimal_flag == True):
             break
