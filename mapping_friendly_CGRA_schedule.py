@@ -13,7 +13,7 @@ def get_data():
                 最早时间步  最晚时间步  节点类型  有无父节点
     """
     # 读取数据
-    filename = os.getcwd()+'\\example1.xls'
+    filename = os.getcwd()+'\\example2.xls'
     data = pd.read_excel(filename)
     print("input data：")
     print(data)
@@ -171,6 +171,9 @@ def scheduled(data, npe):
         # 求解
         # 添加自变量
         prob = LpProblem("CGRA", LpMinimize)  # 最小化问题
+        # 添加Npe变量,目标方程中约束
+        Npe = pulp.LpVariable("Npe", lowBound=0, cat='Integer')
+        
         x_var_list = []  # 每个算子x的变量集合，每个字列表
         for i in range(len(data)):
             op = op_list[i]
@@ -280,10 +283,15 @@ def scheduled(data, npe):
                           II].append(x_var_list[i][j][k])
         for ls in x_var:
             constraints.append(
-                lpSum(ls) <= npe
+                lpSum(ls) <= Npe
             )
-            print(lpSum(ls) <= npe)
-
+            print(lpSum(ls) <= Npe)
+        # 约束Npe
+        constraints.append(
+            Npe <= npe
+        )
+        print(Npe <= npe)
+        
         # 添加约束
         for item in constraints:
             prob += item
@@ -295,8 +303,9 @@ def scheduled(data, npe):
         for i in range(len(x_var_list)):
             for j in range(len(x_var_list[i])):
                 for k in range(len(x_var_list[i][j])):
-                    if(j != k):
+                    if(0 != k):
                         Nins_ls.append(x_var_list[i][j][k])
+                        print(x_var_list[i][j][k])
 
         beta = len(Nins_ls)  # 目标方程系数项，等于路由算子最大使用量
 
@@ -306,18 +315,20 @@ def scheduled(data, npe):
         #     print(
         #         (lpSum(beta * ls[j]) for j in range(len(ls))) - lpSum(Nins_ls)
         #     )
+        prob += (beta * Npe -lpSum(Nins_ls))
+        print(beta * Npe -lpSum(Nins_ls))
         
-        prob += ((lpSum(beta * x_var[i][j]) for j in range(len(x_var[i])))
-                 for i in range(len(x_var))) - lpSum(Nins_ls)
-        print(((lpSum(beta * x_var[i][j]) for j in range(len(x_var[i])))
-               for i in range(len(x_var))) - lpSum(Nins_ls))
-
+        print()
+        print("ii := ",ii)
+        print()
+        
         prob.solve()
         # 查看解的状态
         print("Status:", LpStatus[prob.status])
         # 查看解
         for v in prob.variables():
             print(v.name, "=", v.varValue)
+            # print(type(v.name))
 
         optimal_flag = True
         if("Optimal" != LpStatus[prob.status]):  # 无最优解
@@ -325,8 +336,10 @@ def scheduled(data, npe):
 
         # 查找长依赖约束
 
+        
         if(optimal_flag == True):
             break
+        
 
 
 if __name__ == '__main__':
