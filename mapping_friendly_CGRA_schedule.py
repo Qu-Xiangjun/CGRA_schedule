@@ -281,6 +281,9 @@ def scheduled(data, npe):
                 for k in range(len(x_var_list[i][j])):
                     x_var[(k + (data[i][9]) + j) %
                           II].append(x_var_list[i][j][k])
+        for tmp in x_var:
+            print(tmp)
+        
         for ls in x_var:
             constraints.append(
                 lpSum(ls) <= Npe
@@ -326,9 +329,12 @@ def scheduled(data, npe):
         # 查看解的状态
         print("Status:", LpStatus[prob.status])
         # 查看解
+        print("-------------------print answers-------------------")
         for v in prob.variables():
-            print(v.name, "=", v.varValue)
-            # print(type(v.name))
+            if(v.name == "Npe"):
+                print(v.name, "=", v.varValue)
+            if(v.varValue == 1):
+                print(v.name, "=", v.varValue)
 
         optimal_flag = True
         if("Optimal" != LpStatus[prob.status]):  # 无最优解
