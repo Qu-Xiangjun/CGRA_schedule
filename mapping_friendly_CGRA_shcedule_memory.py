@@ -13,12 +13,12 @@ def get_data():
                 最早时间步  最晚时间步  节点类型  有无父节点
     """
     # 读取数据
-    filename = 'example3.xls'
+    filename = 'example2.xls'
     data = pd.read_excel(filename)
     print("input data：")
     print(data)
     x = np.array([list(data[u'节点编号']), list(data[u'子节点1']), list(data[u'边类型1']),
-                  list(data[u'子节点 2']), list(data[u'边类型2']),
+                  list(data[u'子节点2']), list(data[u'边类型2']),
                   list(data[u'子节点3']), list(data[u'边类型3']),
                   list(data[u'子节点4']), list(data[u'边类型4']),
                   list(data[u'最早时间步']), list(data[u'最晚时间步']),
@@ -29,11 +29,17 @@ def get_data():
     print()
 
     return x
-ew
+
 
 def output_file(data):
+    """
+    输出表到excel文件
+    @return x : n行，每一行数据的格式为
+                节点编号  子节点1  边类型  子节点2  边类型.1
+                子节点3  边类型.2  子节点4  边类型.3
+    """
     # 任意的多组列表
-    data = np.array(data)
+    # data = np.array(data)
     data = data.T
     data.tolist()
 
@@ -42,7 +48,7 @@ def output_file(data):
                               '子节点3': data[4], '子节点4': data[5], '节点类型': data[6], '原节点编号': data[7]})
 
     # 将DataFrame存储为csv,index表示是否显示行名，default=True
-Z    dataframe.to_csv(os.getcwd() + "\\result.csv", index=False, sep=',')
+    dataframe.to_csv(os.getcwd() + "\\result2.csv", index=False, sep=',')
 
 
 class opterator:
@@ -60,6 +66,17 @@ class opterator:
         self.moves = False  # 是否有机动性，0为否，1为有，即lastest_time_step>earlier_time_step
         self.moves_router = []  # 算子的路由节点可放置范围 [earlier_time_step，router_lastest_time_step]
         self.start_op = False  # 是否为起始节点
+
+class output_op:
+    """
+    输出算子类
+    """
+    def __init__(self):
+        self.id = 0
+        self.old_id = 0
+        self.timestamp = 0
+        self.children = []
+        self.specie = 0 # 0为算子节点 1 为插入的pe路由节点 2 为插入的store节点 3位插入的load节点
 
 
 def scheduled(data, npe):
@@ -425,8 +442,6 @@ def scheduled(data, npe):
                     z_var[(k + (data[i][9]) + j) %
                           II].append(z_var_list[i][j][k])
 
-            
-        
         # for i in range(len(x_var_list)):
         #     for j in range(len(x_var_list[i])):
         #         for k in range(len(x_var_list[i][j])):
@@ -500,21 +515,125 @@ def scheduled(data, npe):
         print()
 
         prob.solve()
-        # 查看解的状态
-        print("Status:", LpStatus[prob.status])
-        # 查看解
-        print("-------------------print answers-------------------")
-        for v in prob.variables():
-            if(v.name == "Npe"):
-                print(v.name, "=", v.varValue)
-            if(v.varValue == 1):
-                print(v.name, "=", v.varValue)
 
         optimal_flag = True
         if ("Optimal" != LpStatus[prob.status]):  # 无最优解
-            optimal_flag = False
+            continue
 
+        # 格式化输出表图
+        Npe_ans = 0
+        varValue_ans_ls = []
+        for v in prob.variables():
+            if(v.name == "Npe"):
+                Npe_ans = v.varValue
+            if(v.varValue == 1):
+                varValue_ans_ls.append([v.name,v.varValue])
+        ans_var_num = len(varValue_ans_ls) # 节点数量
+        # 结果算子列表
+        ans_op_ls = [[] for i in range(len(data))] # 每个id-1为下标存存储本原节点对应的所有pe
+        r_num = len(data) # 调度节点数量
+        # 初始化
+        for i in varValue_ans_ls:
+            tmp = i[0].split('_')
+            var_class = tmp[0] # 变量类型 xyz
+            var_id = int(tmp[1]) # id
+            var_diaodu = int(tmp[2]) # 起始
+            var_excute = int(tmp[3]) # 执行时间步
+            out_op = output_op() # 输出算子对象
+            if(var_diaodu == var_excute): # 调度节点
+                out_op.old_id = out_op.id = var_id # 节点编号，原节点编号
+                out_op.timestamp = var_excute # 执行时间步
+                out_op.specie = 0 # 算子节点
+                ans_op_ls[var_id-1].insert(0,out_op) # 调度节点插入第一位
+            else: # 路由节点
+                r_num += 1
+                out_op.old_id = var_id
+                out_op.id = r_num
+                out_op.timestamp = var_excute # 执行时间步
+                if(var_class == 'x'):
+                    out_op.specie = 1 # 算子节点
+                elif(var_class == 'y'):
+                    out_op.specie = 2
+                else:
+                    out_op.specie = 3
+                ans_op_ls[var_id-1].append(out_op)
+        # 整理顺序
+        for i in range(len(data)):
+            op_ls = ans_op_ls[i]
+            op_ls_len = len(op_ls)
+            for j in range(op_ls_len):
+                min_index = j
+                for k in range(j,op_ls_len):
+                    if(op_ls[min_index].timestamp > op_ls[k].timestamp):
+                        min_index = k
+                op_ls[j],op_ls[min_index] = op_ls[min_index],op_ls[j]
+        # 添加子节点情况
+        for line in data:
+            id = line[0]
+            op_ls = ans_op_ls[id-1]
+            if(len(op_ls)==1): # 无路由节点
+                for kid in op_list[id-1].children:
+                    op_ls[0].children.append(ans_op_ls[kid[0]-1][0])
+            else:
+                for j in range(1,len(op_ls)): # 设置每一个路由PE的父子关系
+                    father = op_ls[j-1]
+                    kid = op_ls[j]
+                    father.children.append(kid)
+                for kid in op_list[id-1].children:
+                    out_kid = ans_op_ls[kid[0]-1][0]
+                    # 找到离此节点最近的父路由pe
+                    fa_index = 0
+                    for fa_op in op_ls:
+                        if(fa_op.timestamp >= (out_kid.timestamp)):
+                            break
+                        else:
+                            fa_index+=1
+                    if(fa_index == len(op_ls)):
+                        op_ls[fa_index-1].children.append(out_kid)
+                    else:
+                        op_ls[fa_index-1].children.append(out_kid)
+        
+        # 结果图表
+        ans_table = np.zeros((ans_var_num,8))
+        for out_op_ls in ans_op_ls:
+            time_count = 0
+            for out_op in out_op_ls:
+                ans_table[out_op.id-1][6] = out_op.specie
+
+                ans_table[out_op.id-1][0] = out_op.id
+                ans_table[out_op.id-1][1] = out_op.timestamp
+                for j in range(len(out_op.children)):
+                    ans_table[out_op.id-1][2+j] = out_op.children[j].id
+                ans_table[out_op.id-1][7] = out_op.old_id
+
+        # 判断长依赖
+        for line in ans_table:
+            fa_time = int(line[1])
+            for j in range(2,6):
+                kid_id = int(line[j])
+                if(kid_id == 0):
+                    break
+                else:
+                    kid_time = int(ans_table[kid_id-1][1])
+                    if ((kid_time-fa_time)%ii == 0):
+                        optimal_flag = False
+                        break
+            
+        
         if (optimal_flag == True):
+            # 查看解的状态
+            print("Status:", LpStatus[prob.status])
+            # 查看解
+            print("-------------------print answers-------------------")
+            for v in prob.variables():
+                if(v.name == "Npe"):
+                    print(v.name, "=", v.varValue)
+                if(v.varValue == 1):
+                    print(v.name, "=", v.varValue)
+
+            # 输出到文件
+            output_file(ans_table)
+
             break
 
 
