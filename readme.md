@@ -18,6 +18,12 @@ result2.csv	例子2的结果输出表
 
 result3.csv	例子3的结果输出表
 
+example1.PNG	例子一的手绘图
+
+example2.PNG	例子二的手绘图
+
+example3.PNG	例子三的手绘图
+
 ## 程序运行方式
 
 在mapping_friendly_CGRA_shcedule_memory.py中直接运行main函数即可。
