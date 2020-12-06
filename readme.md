@@ -18,7 +18,9 @@ result2.csv	例子2的结果输出表
 
 result3.csv	例子3的结果输出表
 
-example1.PNG	例子一的手绘图
+example1_new.PNG	例子一的手绘图(更改依赖约束后的图)
+
+example1_old.PNG	例子一的有依赖约束问题手绘图
 
 example2.PNG	例子二的手绘图
 
@@ -33,3 +35,7 @@ example3.PNG	例子三的手绘图
 ​	mian	->	get_data()	->	scheduled()	->	output_file()
 
 注意更换调度的输入数据文件在get_data中，输出文件变更在output_file中
+
+## 输出表说明
+
+节点类型列：0为算子节点 1 为插入的pe路由节点 2 为插入的store节点 3位插入的load节点

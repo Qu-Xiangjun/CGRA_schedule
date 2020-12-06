@@ -2,6 +2,7 @@ from pulp import *
 import pandas as pd
 import numpy as np
 import os
+import copy
 
 
 def get_data():
@@ -13,7 +14,7 @@ def get_data():
                 最早时间步  最晚时间步  节点类型  有无父节点
     """
     # 读取数据
-    filename = 'example2.xls'
+    filename = 'example1.xls'
     data = pd.read_excel(filename)
     print("input data：")
     print(data)
@@ -48,7 +49,7 @@ def output_file(data):
                               '子节点3': data[4], '子节点4': data[5], '节点类型': data[6], '原节点编号': data[7]})
 
     # 将DataFrame存储为csv,index表示是否显示行名，default=True
-    dataframe.to_csv(os.getcwd() + "\\result2.csv", index=False, sep=',')
+    dataframe.to_csv(os.getcwd() + "\\result1.csv", index=False, sep=',')
 
 
 class opterator:
@@ -618,8 +619,62 @@ def scheduled(data, npe):
                     if ((kid_time-fa_time)%ii == 0):
                         optimal_flag = False
                         break
-            
         
+                # 补充路由节点大于子节点最迟调度步的约束
+        # 若存在路由节点的时间步大于 or 等于子节点最迟调度步，删去
+        delete_id_ls = []
+        for i in range(len(ans_table)):
+            line = ans_table[i]
+            if(line[6] == 0):
+                continue
+            elif(line[6] == 1): # 路由pe
+                for id in range(2,6):
+                    if(id == 0):
+                        break
+                    if(line[6]>=ans_table[id-1][1]):
+                        delete_id_ls.append(i)
+                        break
+            elif(line[6]==3): # load节点
+                for id in range(2,6):
+                    if(id == 0):
+                        break
+                    if(line[6]>=ans_table[id-1][1]):
+                        delete_id_ls.append(i)
+                        for store in ans_table:
+                            if(store[7]==line[7] and store[6==2]):
+                                delete_id_ls.append(store[0]-1)
+                        break
+        ans_table2 = []
+        for i in range(len(ans_table)):
+            if( i in delete_id_ls):
+                continue
+            else:
+                ans_table2.append(ans_table[i].tolist())
+        ans_table = np.array(ans_table2)
+        for i in range(len(delete_id_ls)):
+            delete_id_ls[i] += 1
+        for line in ans_table:
+            id1,id2,id3,id4 = int(line[2]), int(line[3]), int(line[4]), int(line[5])
+            id_ls = ['0','0','0','0','0','0','0','0']
+            if(id1 not in delete_id_ls):
+                id_ls[0] = str(id1)
+            if(id2 not in delete_id_ls):
+                id_ls[1] = str(id2)
+            if(id3 not in delete_id_ls):
+                id_ls[2] = str(id3)
+            if(id4 not in delete_id_ls):
+                id_ls[3] = str(id4)
+            index_0 = 0
+            for i in range(4):
+                if(id_ls[i] == '0'):
+                    index = i
+                else:
+                    break
+            id_ls = id_ls[index_0+1:]
+            for i in range(4):
+                line[2+i] = id_ls[i]
+                
+
         if (optimal_flag == True):
             # 查看解的状态
             print("Status:", LpStatus[prob.status])
